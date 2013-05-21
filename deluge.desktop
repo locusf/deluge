@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=deluge
+Icon=icon-launcher-gallery
+Exec=invoker --type=j -s /opt/sdk/bin/deluge
+Comment=Sailfish UI application
+
+
