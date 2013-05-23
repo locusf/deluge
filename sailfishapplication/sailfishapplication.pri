@@ -1,4 +1,4 @@
-QT += declarative
+QT += declarative network
 
 SOURCES += $$PWD/sailfishapplication.cpp \
     sailfishapplication/delugeclient.cpp
@@ -11,14 +11,15 @@ target.path = $$TARGETPATH
 
 DEPLOYMENT_PATH = /opt/sdk/share/$$TARGET
 qml.path = $$DEPLOYMENT_PATH
+python.path = $$DEPLOYMENT_PATH
 desktop.path = /opt/sdk/share/applications
-
+LIBS += -lz
 contains(CONFIG, desktop) {
     DEFINES *= DESKTOP
     QT += opengl
 }
 
-INSTALLS += target qml desktop
+INSTALLS += target qml desktop python
 
 DEFINES += DEPLOYMENT_PATH=\"\\\"\"$${DEPLOYMENT_PATH}/\"\\\"\"
 

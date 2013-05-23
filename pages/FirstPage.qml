@@ -11,6 +11,14 @@ Page {
         // PullDownMenu and PushUpMenu must be declared in SilicaFlickable, SilicaListView or SilicaGridView
         PullDownMenu {
             MenuItem {
+                text: "Refresh"
+                onClicked: {
+                    var tor = delugeClient.getTorrents()
+                    console.log(tor)
+                }
+            }
+
+            MenuItem {
                 text: "Settings"
                 onClicked: pageStack.push(Qt.resolvedUrl("SecondPage.qml"))
             }

@@ -12,7 +12,7 @@ qml.files = *.qml pages cover main.qml
 
 # The .desktop file
 desktop.files = deluge.desktop
-
+python.files = rencode.py
 # Please do not modify the following line.
 include(sailfishapplication/sailfishapplication.pri)
 

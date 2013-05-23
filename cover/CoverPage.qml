@@ -3,7 +3,7 @@ import Sailfish.Silica 1.0
 
 Rectangle {
     anchors.fill: parent
-    color: "blue"
+    color: "steelblue"
     
     Label {
         id: label
@@ -13,14 +13,6 @@ Rectangle {
     
     CoverActionList {
         id: coverAction
-        
-        CoverAction {
-            iconSource: "image://theme/icon-cover-next"
-        }
-        
-        CoverAction {
-            iconSource: "image://theme/icon-cover-pause"
-        }
     }
 }
 

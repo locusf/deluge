@@ -20,6 +20,7 @@ Page {
             }
             TextField {
                 width: parent.width
+                id: serverfield
                 placeholderText: "server.local.com"
                 focus: true
             }
@@ -28,6 +29,7 @@ Page {
             }
             TextField {
                 width: parent.width
+                id: portfield
                 placeholderText: "58846"
                 inputMethodHints: Qt.ImhDialableCharactersOnly
                 focus: true
@@ -37,6 +39,7 @@ Page {
             }
             TextField {
                 width: parent.width
+                id: userfield
                 placeholderText: ""
                 focus: true
             }
@@ -46,6 +49,7 @@ Page {
             TextField {
                 echoMode: TextInput.Password
                 width: parent.width
+                id: passwordfield
                 placeholderText: ""
                 focus: true
             }

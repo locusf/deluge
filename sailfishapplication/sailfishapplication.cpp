@@ -49,8 +49,8 @@ QDeclarativeView *Sailfish::createView(const QString &file)
         path = QString(DEPLOYMENT_PATH);
     }
     view->setSource(QUrl::fromLocalFile(path + file));
-    DelugeClient client;
-    view->rootContext()->setContextProperty("delugeClient", &client);
+    DelugeClient *client = new DelugeClient(view);
+    view->rootContext()->setContextProperty("delugeClient", client);
     return view;
 }
 
