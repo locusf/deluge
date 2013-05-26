@@ -2,10 +2,12 @@
 TARGET = deluge
 
 # C++ sources
-SOURCES += main.cpp
+SOURCES += main.cpp \
+    qsailfishsocket.cpp
 
 # C++ headers
-HEADERS +=
+HEADERS += \
+    qsailfishsocket.h
 
 # QML files and folders
 qml.files = *.qml pages cover main.qml

@@ -4,15 +4,19 @@
 #include <QObject>
 #include <QVariantList>
 #include <QSslSocket>
+#include <qsailfishsocket.h>
 
 class DelugeClient : public QObject
 {
     Q_OBJECT
 public:
     explicit DelugeClient(QObject *parent = 0);
+    ~DelugeClient();
     Q_INVOKABLE QVariantList getTorrents();
+
 private:
-    QSslSocket * _pSocket;
+    QSailfishSocket * _pSocket;
+    QVariantList * _pActiveTorrents;
 signals:
     
 public slots:
