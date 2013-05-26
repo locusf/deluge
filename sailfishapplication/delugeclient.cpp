@@ -2,6 +2,7 @@
 #include <QDebug>
 #include <QProcess>
 #include <QSslSocket>
+#include <QSslConfiguration>
 #include <qsailfishsocket.h>
 #include <QDataStream>
 #include <zlib.h>
@@ -11,14 +12,15 @@ DelugeClient::DelugeClient(QObject *parent) :
     QObject(parent)
 {
     _pActiveTorrents = new QVariantList();
-    _pSocket = new QSailfishSocket();
+    _pSocket = new QSslSocket(this);
+    _p_rencode_python = new QProcess(this->parent());
+    connect(_pSocket, SIGNAL(encrypted()), this, SLOT(doLogin()));
     connect(_pSocket, SIGNAL(readyRead()), this, SLOT(readTcpData()));
     connect(_pSocket, SIGNAL(encryptedBytesWritten(qint64)), this, SLOT(data_written(qint64)));
-    _pSocket->setPeerVerifyMode(QSslSocket::VerifyNone);
-    _pSocket->connectToHostEncrypted("gtsq.lan", 58846, "Deluge Daemon");
-    _pSocket->setLocalPortS(10111);
-    qDebug() << _pSocket->localPort();
-    qDebug() << _pSocket->peerPort();
+    connect(_pSocket, SIGNAL(peerVerifyError(const QSslError&)), this, SLOT(ssl_error(const QSslError&)));
+    connect(_pSocket, SIGNAL(sslErrors(const QList<QSslError>&)), this, SLOT(ssl_errors(const QList<QSslError>&)));
+    connect(_pSocket, SIGNAL(modeChanged(QSslSocket::SslMode)), this, SLOT(ssl_change_mode(QSslSocket::SslMode)));
+    _pSocket->connectToHostEncrypted("gtsq.lan", 58846, "Deluge Daemon", QIODevice::ReadWrite);
 }
 
 DelugeClient::~DelugeClient()
@@ -36,40 +38,51 @@ void DelugeClient::data_written(qint64 written)
     qDebug() << "Wrote " << written << " bytes";
 }
 
+void DelugeClient::ssl_error(const QSslError &error)
+{
+    qDebug() << "SSL ERROR: " << error;
+}
+
+void DelugeClient::ssl_errors(const QList<QSslError> &errors)
+{
+    qDebug() << "SSL errors: " << errors;
+}
+void DelugeClient::ssl_change_mode(QSslSocket::SslMode mode)
+{
+    qDebug() << "SSL MODE CHANGE: " << mode;
+}
+
+void DelugeClient::doLogin()
+{
+    QStringList args;
+    QString program = "/usr/bin/python";
+    args << "-c" << "import imp; rencode = imp.load_source(\"rencode\", \"/opt/sdk/share/deluge/rencode.py\"); print rencode.dumps([[1337, \"daemon.login\", [\"locusf\", \"jepjep\"],{}]])";
+    _p_rencode_python->start(program, args);
+    _p_rencode_python->waitForFinished(-1);
+    qDebug() << _p_rencode_python->readAllStandardError();
+    QByteArray output = _p_rencode_python->readAllStandardOutput();
+    qDebug() << "Application output " << output;
+    QByteArray data = qCompress(output);
+    qDebug() << "wrote: " << _pSocket->write(data);
+    _pSocket->flush();
+}
+
 QVariantList DelugeClient::getTorrents()
 {
     QVariantList torrents;
     torrents.append("FOO");
-    QProcess rencode_python(this->parent());
+
     QString program = "/usr/bin/python";
     QStringList args;
     // [1337, \"daemon.login\", [\"locusf\", \"jepjep\"],{}]
-    args << "-c" << "import imp; rencode = imp.load_source(\"rencode\", \"/opt/sdk/share/deluge/rencode.py\"); print rencode.dumps([[1327, \"core.get_session_state\", [],{}]])";
-    rencode_python.start(program, args);
-    rencode_python.waitForFinished(-1);
-    qDebug() << rencode_python.readAllStandardError();
-    QByteArray output = rencode_python.readAllStandardOutput();
+    args << "-c" << "import imp; rencode = imp.load_source(\"rencode\", \"/opt/sdk/share/deluge/rencode.py\"); print rencode.dumps([[1337, \"daemon.login\", [\"locusf\", \"jepjep\"],{}], [1327, \"core.get_session_state\", [],{}]])";
+    _p_rencode_python->start(program, args);
+    _p_rencode_python->waitForFinished(-1);
+    qDebug() << _p_rencode_python->readAllStandardError();
+    QByteArray output = _p_rencode_python->readAllStandardOutput();
     qDebug() << "Application output " << output;
     QByteArray data = qCompress(output);
-    QDataStream stream(_pSocket);
-    while(_pSocket->waitForEncrypted()) {
-        qDebug() << "Encrypted!";
-    }
-    while(!_pSocket->waitForConnected())
-    {
-        qDebug() << "Not connected!";
-    }
-    stream << data;
-    while(_pSocket->waitForBytesWritten())
-    {
-        qDebug() << "Wrote data!" << data.toHex();
-    }
-    while(_pSocket->waitForReadyRead(1000))
-    {
-        qDebug() << "Read something!";
-        qDebug() << _pSocket->readAll();
-    }
-    //QByteArray tdata = qUncompress(_pSocket->readAll());
-    //qDebug() << "Data: " << tdata.data() << " data len: " << strlen(tdata.data());
+    qDebug() << "wrote: " << _pSocket->write(data);
+    _pSocket->flush();
     return torrents;
 }
