@@ -6,10 +6,17 @@
 #include <QSslSocket>
 #include <qsailfishsocket.h>
 #include <QProcess>
+#include <QMutex>
 
 class DelugeClient : public QObject
 {
     Q_OBJECT
+    enum DelugeState {
+        ConnectedState,
+        LoginState,
+        DataState
+    };
+    DelugeState state;
 public:
     explicit DelugeClient(QObject *parent = 0);
     ~DelugeClient();
@@ -19,15 +26,12 @@ private:
     QSslSocket * _pSocket;
     QVariantList * _pActiveTorrents;
     QProcess * _p_rencode_python;
+    QByteArray * _pArray;
 signals:
     
 public slots:
     Q_SLOT void readTcpData();
-    Q_SLOT void data_written(qint64 written);
-    Q_SLOT void doLogin();
-    Q_SLOT void ssl_error(const QSslError& error);
-    Q_SLOT void ssl_change_mode(QSslSocket::SslMode mode);
-    Q_SLOT void ssl_errors(const QList<QSslError>& errors);
+    Q_SLOT void wrotebytes(qint64 len);
 };
 
 #endif // DELUGECLIENT_H

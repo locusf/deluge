@@ -2,6 +2,7 @@
 #include <QApplication>
 #include <QDeclarativeView>
 #include <QSslConfiguration>
+#include <QSslCipher>
 
 #include "sailfishapplication.h"
 #include "delugeclient.h"
