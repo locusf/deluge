@@ -4,7 +4,7 @@ SOURCES += $$PWD/sailfishapplication.cpp \
     sailfishapplication/delugeclient.cpp
 HEADERS += $$PWD/sailfishapplication.h \
     sailfishapplication/delugeclient.h
-INCLUDEPATH += $$PWD /usr/include
+INCLUDEPATH += $$PWD /usr/include/python2.7
 
 TARGETPATH = /opt/sdk/bin
 target.path = $$TARGETPATH
@@ -13,7 +13,7 @@ DEPLOYMENT_PATH = /opt/sdk/share/$$TARGET
 qml.path = $$DEPLOYMENT_PATH
 python.path = $$DEPLOYMENT_PATH
 desktop.path = /opt/sdk/share/applications
-LIBS += -lz
+LIBS += -lz -lboost_python -lpython2.7
 contains(CONFIG, desktop) {
     DEFINES *= DESKTOP
     QT += opengl
