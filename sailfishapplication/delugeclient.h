@@ -14,12 +14,10 @@ using namespace boost::python;
 class DelugeClient : public QObject
 {
     Q_OBJECT
-    enum DelugeState {
-        ConnectedState,
-        LoginState,
-        DataState
+    enum DelugeRequest {
+
     };
-    DelugeState state;
+    DelugeRequest req;
 public:
     explicit DelugeClient(QObject *parent = 0);
     ~DelugeClient();
@@ -30,14 +28,16 @@ private:
     QVariantList * _pActiveTorrents;
     QProcess * _p_rencode_python;
     QByteArray * _pArray;
-    object zlib;
+    object dezlib, compzlib;
     object imp;
     object rencode;
+    int read_times;
 signals:
-    
+    void completed_packet();
 public slots:
     Q_SLOT void readTcpData();
     Q_SLOT void wrotebytes(qint64 len);
+    Q_SLOT void read_completed();
 };
 
 #endif // DELUGECLIENT_H

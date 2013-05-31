@@ -19,7 +19,7 @@ rencode module versions, so you should check that you are using the
 same rencode version throughout your project.
 """
 
-__version__ = '1.0.2'
+__version__ = '1.0.1'
 __all__ = ['dumps', 'loads']
 
 # Original bencode module by Petru Paler, et al.
@@ -62,21 +62,8 @@ __all__ = ['dumps', 'loads']
 # (The rencode module is licensed under the above license as well).
 #
 
-import sys
-
-py3 = False
-if sys.version_info.major >= 3:
-    py3 = True
-    long = int
-    unicode = str
-
-def int2byte(c):
-    if py3:
-        return bytes([c])
-    else:
-        return chr(c)
-
 import struct
+import string
 from threading import Lock
 
 # Default number of bits for serialized floats, either 32 or 64 (also a parameter for dumps()).
@@ -87,19 +74,19 @@ MAX_INT_LENGTH = 64
 
 # The bencode 'typecodes' such as i, d, etc have been extended and
 # relocated on the base-256 character set.
-CHR_LIST    = int2byte(59)
-CHR_DICT    = int2byte(60)
-CHR_INT     = int2byte(61)
-CHR_INT1    = int2byte(62)
-CHR_INT2    = int2byte(63)
-CHR_INT4    = int2byte(64)
-CHR_INT8    = int2byte(65)
-CHR_FLOAT32 = int2byte(66)
-CHR_FLOAT64 = int2byte(44)
-CHR_TRUE    = int2byte(67)
-CHR_FALSE   = int2byte(68)
-CHR_NONE    = int2byte(69)
-CHR_TERM    = int2byte(127)
+CHR_LIST    = chr(59)
+CHR_DICT    = chr(60)
+CHR_INT     = chr(61)
+CHR_INT1    = chr(62)
+CHR_INT2    = chr(63)
+CHR_INT4    = chr(64)
+CHR_INT8    = chr(65)
+CHR_FLOAT32 = chr(66)
+CHR_FLOAT64 = chr(44)
+CHR_TRUE    = chr(67)
+CHR_FALSE   = chr(68)
+CHR_NONE    = chr(69)
+CHR_TERM    = chr(127)
 
 # Positive integers with value embedded in typecode.
 INT_POS_FIXED_START = 0
@@ -121,9 +108,6 @@ STR_FIXED_COUNT = 64
 LIST_FIXED_START = STR_FIXED_START+STR_FIXED_COUNT
 LIST_FIXED_COUNT = 64
 
-# Whether strings should be decoded when loading
-_decode_utf8 = False
-
 def decode_int(x, f):
     f += 1
     newf = x.index(CHR_TERM, f)
@@ -133,10 +117,10 @@ def decode_int(x, f):
         n = int(x[f:newf])
     except (OverflowError, ValueError):
         n = long(x[f:newf])
-    if x[f:f+1] == '-':
-        if x[f + 1:f + 2] == '0':
+    if x[f] == '-':
+        if x[f + 1] == '0':
             raise ValueError
-    elif x[f:f+1] == '0' and newf != f+1:
+    elif x[f] == '0' and newf != f+1:
         raise ValueError
     return (n, newf+1)
 
@@ -150,7 +134,6 @@ def decode_inth(x, f):
 
 def decode_intl(x, f):
     f += 1
-
     return (struct.unpack('!l', x[f:f+4])[0], f+4)
 
 def decode_intq(x, f):
@@ -168,7 +151,7 @@ def decode_float64(x, f):
     return (n, f+8)
 
 def decode_string(x, f):
-    colon = x.index(b':', f)
+    colon = x.index(':', f)
     try:
         n = int(x[f:colon])
     except (OverflowError, ValueError):
@@ -177,22 +160,26 @@ def decode_string(x, f):
         raise ValueError
     colon += 1
     s = x[colon:colon+n]
-    if _decode_utf8:
-        s = s.decode('utf8')
+    try:
+        t = s.decode("utf8")
+        if len(t) != len(s):
+            s = t
+    except UnicodeEncodeError:
+        pass
     return (s, colon+n)
 
 def decode_list(x, f):
     r, f = [], f+1
-    while x[f:f+1] != CHR_TERM:
-        v, f = decode_func[x[f:f+1]](x, f)
+    while x[f] != CHR_TERM:
+        v, f = decode_func[x[f]](x, f)
         r.append(v)
     return (tuple(r), f + 1)
 
 def decode_dict(x, f):
     r, f = {}, f+1
-    while x[f:f+1] != CHR_TERM:
-        k, f = decode_func[x[f:f+1]](x, f)
-        r[k], f = decode_func[x[f:f+1]](x, f)
+    while x[f] != CHR_TERM:
+        k, f = decode_func[x[f]](x, f)
+        r[k], f = decode_func[x[f]](x, f)
     return (r, f + 1)
 
 def decode_true(x, f):
@@ -205,16 +192,16 @@ def decode_none(x, f):
   return (None, f+1)
 
 decode_func = {}
-decode_func[b'0'] = decode_string
-decode_func[b'1'] = decode_string
-decode_func[b'2'] = decode_string
-decode_func[b'3'] = decode_string
-decode_func[b'4'] = decode_string
-decode_func[b'5'] = decode_string
-decode_func[b'6'] = decode_string
-decode_func[b'7'] = decode_string
-decode_func[b'8'] = decode_string
-decode_func[b'9'] = decode_string
+decode_func['0'] = decode_string
+decode_func['1'] = decode_string
+decode_func['2'] = decode_string
+decode_func['3'] = decode_string
+decode_func['4'] = decode_string
+decode_func['5'] = decode_string
+decode_func['6'] = decode_string
+decode_func['7'] = decode_string
+decode_func['8'] = decode_string
+decode_func['9'] = decode_string
 decode_func[CHR_LIST   ] = decode_list
 decode_func[CHR_DICT   ] = decode_dict
 decode_func[CHR_INT    ] = decode_int
@@ -232,12 +219,16 @@ def make_fixed_length_string_decoders():
     def make_decoder(slen):
         def f(x, f):
             s = x[f+1:f+1+slen]
-            if _decode_utf8:
-                s = s.decode("utf8")
+            try:
+                t = s.decode("utf8")
+                if len(t) != len(s):
+                    s = t
+            except UnicodeEncodeError:
+                pass
             return (s, f+1+slen)
         return f
     for i in range(STR_FIXED_COUNT):
-        decode_func[int2byte(STR_FIXED_START+i)] = make_decoder(i)
+        decode_func[chr(STR_FIXED_START+i)] = make_decoder(i)
 
 make_fixed_length_string_decoders()
 
@@ -246,12 +237,12 @@ def make_fixed_length_list_decoders():
         def f(x, f):
             r, f = [], f+1
             for i in range(slen):
-                v, f = decode_func[x[f:f+1]](x, f)
+                v, f = decode_func[x[f]](x, f)
                 r.append(v)
             return (tuple(r), f)
         return f
     for i in range(LIST_FIXED_COUNT):
-        decode_func[int2byte(LIST_FIXED_START+i)] = make_decoder(i)
+        decode_func[chr(LIST_FIXED_START+i)] = make_decoder(i)
 
 make_fixed_length_list_decoders()
 
@@ -261,9 +252,9 @@ def make_fixed_length_int_decoders():
             return (j, f+1)
         return f
     for i in range(INT_POS_FIXED_COUNT):
-        decode_func[int2byte(INT_POS_FIXED_START+i)] = make_decoder(i)
+        decode_func[chr(INT_POS_FIXED_START+i)] = make_decoder(i)
     for i in range(INT_NEG_FIXED_COUNT):
-        decode_func[int2byte(INT_NEG_FIXED_START+i)] = make_decoder(-1-i)
+        decode_func[chr(INT_NEG_FIXED_START+i)] = make_decoder(-1-i)
 
 make_fixed_length_int_decoders()
 
@@ -272,31 +263,39 @@ def make_fixed_length_dict_decoders():
         def f(x, f):
             r, f = {}, f+1
             for j in range(slen):
-                k, f = decode_func[x[f:f+1]](x, f)
-                r[k], f = decode_func[x[f:f+1]](x, f)
+                k, f = decode_func[x[f]](x, f)
+                r[k], f = decode_func[x[f]](x, f)
             return (r, f)
         return f
     for i in range(DICT_FIXED_COUNT):
-        decode_func[int2byte(DICT_FIXED_START+i)] = make_decoder(i)
+        decode_func[chr(DICT_FIXED_START+i)] = make_decoder(i)
 
 make_fixed_length_dict_decoders()
 
-def loads(x, decode_utf8=False):
-    global _decode_utf8
-    _decode_utf8 = decode_utf8
+def encode_dict(x,r):
+    r.append(CHR_DICT)
+    for k, v in x.items():
+        encode_func[type(k)](k, r)
+        encode_func[type(v)](v, r)
+    r.append(CHR_TERM)
+
+
+def loads(x):
     try:
-        r, l = decode_func[x[0:1]](x, 0)
+        r, l = decode_func[x[0]](x, 0)
     except (IndexError, KeyError):
         raise ValueError
     if l != len(x):
         raise ValueError
     return r
 
+from types import StringType, IntType, LongType, DictType, ListType, TupleType, FloatType, NoneType, UnicodeType
+
 def encode_int(x, r):
     if 0 <= x < INT_POS_FIXED_COUNT:
-        r.append(int2byte(INT_POS_FIXED_START+x))
+        r.append(chr(INT_POS_FIXED_START+x))
     elif -INT_NEG_FIXED_COUNT <= x < 0:
-        r.append(int2byte(INT_NEG_FIXED_START-1-x))
+        r.append(chr(INT_NEG_FIXED_START-1-x))
     elif -128 <= x < 128:
         r.extend((CHR_INT1, struct.pack('!b', x)))
     elif -32768 <= x < 32768:
@@ -307,9 +306,6 @@ def encode_int(x, r):
         r.extend((CHR_INT8, struct.pack('!q', x)))
     else:
         s = str(x)
-        if py3:
-            s = bytes(s, "ascii")
-
         if len(s) >= MAX_INT_LENGTH:
             raise ValueError('overflow')
         r.extend((CHR_INT, s, CHR_TERM))
@@ -321,26 +317,23 @@ def encode_float64(x, r):
     r.extend((CHR_FLOAT64, struct.pack('!d', x)))
 
 def encode_bool(x, r):
-    r.append({False: CHR_FALSE, True: CHR_TRUE}[bool(x)])
+    r.extend({False: CHR_FALSE, True: CHR_TRUE}[bool(x)])
 
 def encode_none(x, r):
-    r.append(CHR_NONE)
+    r.extend(CHR_NONE)
 
 def encode_string(x, r):
     if len(x) < STR_FIXED_COUNT:
-        r.extend((int2byte(STR_FIXED_START + len(x)), x))
+        r.extend((chr(STR_FIXED_START + len(x)), x))
     else:
-        s = str(len(x))
-        if py3:
-            s = bytes(s, "ascii")
-        r.extend((s, b':', x))
+        r.extend((str(len(x)), ':', x))
 
 def encode_unicode(x, r):
     encode_string(x.encode("utf8"), r)
 
 def encode_list(x, r):
     if len(x) < LIST_FIXED_COUNT:
-        r.append(int2byte(LIST_FIXED_START + len(x)))
+        r.append(chr(LIST_FIXED_START + len(x)))
         for i in x:
             encode_func[type(i)](i, r)
     else:
@@ -351,7 +344,7 @@ def encode_list(x, r):
 
 def encode_dict(x,r):
     if len(x) < DICT_FIXED_COUNT:
-        r.append(int2byte(DICT_FIXED_START + len(x)))
+        r.append(chr(DICT_FIXED_START + len(x)))
         for k, v in x.items():
             encode_func[type(k)](k, r)
             encode_func[type(v)](v, r)
@@ -363,17 +356,22 @@ def encode_dict(x,r):
         r.append(CHR_TERM)
 
 encode_func = {}
-encode_func[int] = encode_int
-encode_func[long] = encode_int
-encode_func[bytes] = encode_string
-encode_func[list] = encode_list
-encode_func[tuple] = encode_list
-encode_func[dict] = encode_dict
-encode_func[type(None)] = encode_none
-encode_func[unicode] = encode_unicode
-encode_func[bool] = encode_bool
+encode_func[IntType] = encode_int
+encode_func[LongType] = encode_int
+encode_func[StringType] = encode_string
+encode_func[ListType] = encode_list
+encode_func[TupleType] = encode_list
+encode_func[DictType] = encode_dict
+encode_func[NoneType] = encode_none
+encode_func[UnicodeType] = encode_unicode
 
 lock = Lock()
+
+try:
+    from types import BooleanType
+    encode_func[BooleanType] = encode_bool
+except ImportError:
+    pass
 
 def dumps(x, float_bits=DEFAULT_FLOAT_BITS):
     """
@@ -384,46 +382,45 @@ def dumps(x, float_bits=DEFAULT_FLOAT_BITS):
     lock.acquire()
     try:
         if float_bits == 32:
-            encode_func[float] = encode_float32
+            encode_func[FloatType] = encode_float32
         elif float_bits == 64:
-            encode_func[float] = encode_float64
+            encode_func[FloatType] = encode_float64
         else:
             raise ValueError('Float bits (%d) is not 32 or 64' % float_bits)
         r = []
         encode_func[type(x)](x, r)
     finally:
         lock.release()
-
-    return b''.join(r)
+    return ''.join(r)
 
 def test():
     f1 = struct.unpack('!f', struct.pack('!f', 25.5))[0]
     f2 = struct.unpack('!f', struct.pack('!f', 29.3))[0]
     f3 = struct.unpack('!f', struct.pack('!f', -0.6))[0]
-    L = (({b'a':15, b'bb':f1, b'ccc':f2, b'':(f3,(),False,True,b'')},(b'a',10**20),tuple(range(-100000,100000)),b'b'*31,b'b'*62,b'b'*64,2**30,2**33,2**62,2**64,2**30,2**33,2**62,2**64,False,False, True, -1, 2, 0),)
+    L = (({'a':15, 'bb':f1, 'ccc':f2, '':(f3,(),False,True,'')},('a',10**20),tuple(range(-100000,100000)),'b'*31,'b'*62,'b'*64,2**30,2**33,2**62,2**64,2**30,2**33,2**62,2**64,False,False, True, -1, 2, 0),)
     assert loads(dumps(L)) == L
     d = dict(zip(range(-100000,100000),range(-100000,100000)))
-    d.update({b'a':20, 20:40, 40:41, f1:f2, f2:f3, f3:False, False:True, True:False})
-    L = (d, {}, {5:6}, {7:7,True:8}, {9:10, 22:39, 49:50, 44: b''})
+    d.update({'a':20, 20:40, 40:41, f1:f2, f2:f3, f3:False, False:True, True:False})
+    L = (d, {}, {5:6}, {7:7,True:8}, {9:10, 22:39, 49:50, 44: ''})
     assert loads(dumps(L)) == L
-    L = (b'', b'a'*10, b'a'*100, b'a'*1000, b'a'*10000, b'a'*100000, b'a'*1000000, b'a'*10000000)
+    L = ('', 'a'*10, 'a'*100, 'a'*1000, 'a'*10000, 'a'*100000, 'a'*1000000, 'a'*10000000)
     assert loads(dumps(L)) == L
-    L = tuple([dict(zip(range(n),range(n))) for n in range(100)]) + (b'b',)
+    L = tuple([dict(zip(range(n),range(n))) for n in range(100)]) + ('b',)
     assert loads(dumps(L)) == L
-    L = tuple([dict(zip(range(n),range(-n,0))) for n in range(100)]) + (b'b',)
+    L = tuple([dict(zip(range(n),range(-n,0))) for n in range(100)]) + ('b',)
     assert loads(dumps(L)) == L
-    L = tuple([tuple(range(n)) for n in range(100)]) + (b'b',)
+    L = tuple([tuple(range(n)) for n in range(100)]) + ('b',)
     assert loads(dumps(L)) == L
-    L = tuple([b'a'*n for n in range(1000)]) + (b'b',)
+    L = tuple(['a'*n for n in range(1000)]) + ('b',)
     assert loads(dumps(L)) == L
-    L = tuple([b'a'*n for n in range(1000)]) + (None,True,None)
+    L = tuple(['a'*n for n in range(1000)]) + (None,True,None)
     assert loads(dumps(L)) == L
     assert loads(dumps(None)) == None
     assert loads(dumps({None:None})) == {None:None}
     assert 1e-10<abs(loads(dumps(1.1))-1.1)<1e-6
     assert 1e-10<abs(loads(dumps(1.1,32))-1.1)<1e-6
     assert abs(loads(dumps(1.1,64))-1.1)<1e-12
-    assert loads(dumps("Hello World!!"), decode_utf8=True)
+    assert loads(dumps(u"Hello World!!"))
 try:
     import psyco
     psyco.bind(dumps)
