@@ -23,15 +23,18 @@ Page {
                 text: name
             }
         }
+        Timer {
+            interval: 1
+            running: true
+            onTriggered: {
+                DelugeClient.getTorrents()
+            }
+        }
+
         // PullDownMenu and PushUpMenu must be declared in SilicaFlickable, SilicaListView or SilicaGridView
         PullDownMenu {
             MenuItem {
                 text: "Refresh"
-                onClicked: {
-                    var tor = delugeClient.getTorrents()
-                    torrentsmodel.append({name: tor[0]})
-                    console.log(tor)
-                }
             }
 
             MenuItem {

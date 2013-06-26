@@ -51,10 +51,7 @@ QDeclarativeView *Sailfish::createView(const QString &file)
     }
     view->setSource(QUrl::fromLocalFile(path + file));
     DelugeClient *client = new DelugeClient(view);
-    QThread* tcpthread = new QThread;
-    client->moveToThread(tcpthread);
-    tcpthread->start();
-    view->rootContext()->setContextProperty("delugeClient", client);
+    view->rootContext()->setContextProperty("DelugeClient", client);
     return view;
 }
 

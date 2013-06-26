@@ -28,6 +28,7 @@ DelugeClient::DelugeClient(QObject *parent) :
     connect(_pSocket, SIGNAL(readyRead()), this, SLOT(readTcpData()) );
     connect(_pSocket, SIGNAL(bytesWritten(qint64)), this, SLOT(wrotebytes(qint64)));
     connect(this, SIGNAL(completed_packet()), this, SLOT(read_completed()));
+    connect(this, SIGNAL(loggedIn()), this, SLOT(after_login()));
     _pSocket->connectToHostEncrypted("gtsq.lan", 58846, "Deluge Daemon");
 }
 
@@ -42,21 +43,12 @@ void DelugeClient::readTcpData()
 {
     qint64 bytes_to_read = _pSocket->bytesAvailable();
     qDebug() << "Read something of length " << bytes_to_read;
-
-    // First chunk
-    if (bytes_to_read <= 4096 && read_times == 0)
-    {
-        _pSocket->read(bytes_to_read);
-        read_times++;
-    // All large chunks
-    } else if (bytes_to_read == 4096 && read_times > 0) {
-        _pArray->append(_pSocket->read(bytes_to_read));
-        read_times++;
-    // Last small chunk
-    } else if (bytes_to_read < 4096 && read_times > 0) {
-        _pArray->append(_pSocket->read(bytes_to_read));
-        read_times = 0;
-        emit completed_packet();
+    _pArray->append(_pSocket->readAll());
+    if (bytes_to_read != 4096) {
+        completed_packet();
+        qDebug() << "Really completed packet!";
+        _pArray = 0;
+        _pArray = new QByteArray();
     }
 }
 
@@ -67,12 +59,22 @@ void DelugeClient::wrotebytes(qint64 len){
 void DelugeClient::read_completed()
 {
     try {
-        const char* cdata = extract<const char *>(dezlib.attr("decompress")(_pArray->constData()));
+        qDebug() << "Will read " << _pArray->size() << " bytes";
+        object data = dezlib.attr("decompress")(_pArray->constData());
+        const char* cdata = extract<const char *>(data);
         qDebug() << cdata;
-        qDebug() << rencode.attr("loads")(cdata);
+        qDebug() << QString::fromLocal8Bit(cdata);
+        object tdata = rencode.attr("loads")(data);
+        qDebug() << extract<int>(tdata[0]);
+        qDebug() << extract<int>(tdata[1]);
+        qDebug() << extract<int>(tdata[2]);
+        if (extract<int>(tdata[1]) == 11) {
+            loggedIn();
+        }
     } catch(error_already_set const &) {
         PyErr_Print();
     }
+    qDebug() << "Packet complete";
 }
 
 QVariantList DelugeClient::getTorrents()
@@ -80,8 +82,8 @@ QVariantList DelugeClient::getTorrents()
     QVariantList torrents;
     torrents.append("FOO");
     try {
-        list params, inner_params, list_torrents;
-        inner_params.append(1337);
+        list params, inner_params;
+        inner_params.append(11);
         inner_params.append("daemon.login");
         list upw;
         upw.append("locusf");
@@ -89,19 +91,29 @@ QVariantList DelugeClient::getTorrents()
         inner_params.append(upw);
         inner_params.append(dict());
         params.append(inner_params);
-        list_torrents.append(1237);
-        list_torrents.append("core.get_torrents_status");
-        list status_params;
-        status_params.append(dict());
-        status_params.append(list());
-        list_torrents.append(status_params);
-        list_torrents.append(dict());
-        params.append(list_torrents);
         char* cdata = extract<char *>(compzlib.attr("compress")(rencode.attr("dumps")(params)));
         QByteArray data(cdata);
-        _pSocket->write(data);
+        qDebug() << _pSocket->write(data);
     }catch(error_already_set const &) {
         PyErr_Print();
     }
+
     return torrents;
+}
+
+void DelugeClient::after_login() {
+    qDebug() << "Wrote bytes";
+    list params2, get_torrents_status;
+    get_torrents_status.append(12);
+    get_torrents_status.append("core.get_torrents_status");
+    list status_params2;
+    status_params2.append(dict());
+    status_params2.append(list());
+    get_torrents_status.append(status_params2);
+    get_torrents_status.append(dict());
+    params2.append(get_torrents_status);
+    char* cdata2 = extract<char *>(compzlib.attr("compress")(rencode.attr("dumps")(params2)));
+    QByteArray data2(cdata2);
+    qDebug() << _pSocket->write(data2);
+    qDebug() << "Login done.";
 }
