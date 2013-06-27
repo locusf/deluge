@@ -28,6 +28,7 @@ DelugeClient::DelugeClient(QObject *parent) :
     connect(_pSocket, SIGNAL(readyRead()), this, SLOT(readTcpData()) );
     connect(this, SIGNAL(completed_packet()), this, SLOT(read_completed()));
     connect(this, SIGNAL(loggedIn()), this, SLOT(after_login()));
+    connect(this, SIGNAL(torrentsReceived(object)), this, SLOT(after_info(object)));
     _pSocket->connectToHostEncrypted("gtsq.lan", 58846, "Deluge Daemon");
 }
 
@@ -41,12 +42,18 @@ DelugeClient::~DelugeClient()
 void DelugeClient::readTcpData()
 {
     qint64 bytes_to_read = _pSocket->bytesAvailable();
-    _pArray->append(_pSocket->readAll());
+    char* data;
+    data = (char*)malloc(bytes_to_read);
+    qDebug() << "Read bytes: " << _pSocket->read(data, bytes_to_read);
+    QByteArray arr;
+    arr = QByteArray::fromRawData(const_cast<const char*>(data), bytes_to_read);
+    _pArray->append(arr);
     if (bytes_to_read != 4096) {
         completed_packet();
         _pArray = 0;
         _pArray = new QByteArray();
     }
+    free(data);
 }
 
 void DelugeClient::read_completed()
@@ -56,19 +63,20 @@ void DelugeClient::read_completed()
         object zlib_mod = import("zlib");
         dezlib = zlib_mod.attr("decompressobj")();
         object data = dezlib.attr("decompress")(_pArray->constData());
+        qDebug() << "Uncompressed data: " << extract<char *>(data);
         dezlib.attr("flush")();
         imp = import("imp");
         rencode = imp.attr("load_source")("rencode", "/opt/sdk/share/deluge/rencode.py");
         object tdata = rencode.attr("loads")(data);
         qDebug() << extract<int>(tdata[0]);
         qDebug() << extract<int>(tdata[1]);
-        qDebug() << extract<int>(tdata[2]);
         int respnum = extract<int>(tdata[1]);
+        object result = tdata[2];
         if (respnum == 11) {
             loggedIn();
         }
         if (respnum == 12) {
-            torrentsReceived(tdata[2]);
+            torrentsReceived(result);
         }
     } catch(error_already_set const &) {
         PyErr_Print();
@@ -92,7 +100,7 @@ QVariantList DelugeClient::getTorrents()
         params.append(inner_params);
         char* cdata = extract<char *>(compzlib.attr("compress")(rencode.attr("dumps")(params)));
         QByteArray data(cdata);
-        qDebug() << _pSocket->write(data);
+        qDebug() << "Wrote " << _pSocket->write(data);
     }catch(error_already_set const &) {
         PyErr_Print();
     }
@@ -105,15 +113,24 @@ void DelugeClient::after_login() {
     list params2, get_torrents_status;
     get_torrents_status.append(12);
     get_torrents_status.append("core.get_torrents_status");
-    list status_params2;
-    status_params2.append(dict());
-    status_params2.append(list());
-    get_torrents_status.append(status_params2);
+    list args;
+    args.append(list());
+    args.append(dict());
+    get_torrents_status.append(args);
     get_torrents_status.append(dict());
     params2.append(get_torrents_status);
     char* cdata2 = extract<char *>(compzlib.attr("compress")(rencode.attr("dumps")(params2)));
     QByteArray data2(cdata2);
-    qDebug() << _pSocket->write(data2);
+    qDebug() << "Wrote: " << _pSocket->write(data2);
+    } catch (error_already_set const &) {
+        PyErr_Print();
+    }
+}
+
+void DelugeClient::after_info(object result) {
+    try {
+        dict res = extract<dict>(result);
+        qDebug() << "Server information: " << res.get("reads");
     } catch (error_already_set const &) {
         PyErr_Print();
     }

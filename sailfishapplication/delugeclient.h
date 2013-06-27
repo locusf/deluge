@@ -40,6 +40,7 @@ public slots:
     Q_SLOT void readTcpData();
     Q_SLOT void read_completed();
     void after_login();
+    void after_info(object result);
 };
 
 #endif // DELUGECLIENT_H
