@@ -35,9 +35,9 @@ private:
 signals:
     void completed_packet();
     void loggedIn();
+    void torrentsReceived(object torrents);
 public slots:
     Q_SLOT void readTcpData();
-    Q_SLOT void wrotebytes(qint64 len);
     Q_SLOT void read_completed();
     void after_login();
 };
