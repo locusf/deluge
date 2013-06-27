@@ -60,10 +60,10 @@ void DelugeClient::read_completed()
 {
     try {
         qDebug() << "Will read " << _pArray->size() << " bytes";
+        object zlib_mod = import("zlib");
+        dezlib = zlib_mod.attr("decompressobj")();
         object data = dezlib.attr("decompress")(_pArray->constData());
-        const char* cdata = extract<const char *>(data);
-        qDebug() << cdata;
-        qDebug() << QString::fromLocal8Bit(cdata);
+        dezlib.attr("flush")();
         object tdata = rencode.attr("loads")(data);
         qDebug() << extract<int>(tdata[0]);
         qDebug() << extract<int>(tdata[1]);
