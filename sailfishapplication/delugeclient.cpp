@@ -103,6 +103,7 @@ QVariantList DelugeClient::getTorrents()
 
 void DelugeClient::after_login() {
     qDebug() << "Wrote bytes";
+    try {
     list params2, get_torrents_status;
     get_torrents_status.append(12);
     get_torrents_status.append("core.get_torrents_status");
@@ -116,4 +117,7 @@ void DelugeClient::after_login() {
     QByteArray data2(cdata2);
     qDebug() << _pSocket->write(data2);
     qDebug() << "Login done.";
+    } catch (error_already_set const &) {
+        PyErr_Print();
+    }
 }
