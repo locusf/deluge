@@ -150,7 +150,8 @@ def decode_inth(x, f):
 
 def decode_intl(x, f):
     f += 1
-
+    print x
+    print f
     return (struct.unpack('!l', x[f:f+4])[0], f+4)
 
 def decode_intq(x, f):
@@ -284,6 +285,7 @@ make_fixed_length_dict_decoders()
 def loads(x, decode_utf8=False):
     global _decode_utf8
     _decode_utf8 = decode_utf8
+    print x
     try:
         r, l = decode_func[x[0:1]](x, 0)
     except (IndexError, KeyError):

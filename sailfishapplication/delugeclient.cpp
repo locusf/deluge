@@ -45,8 +45,7 @@ void DelugeClient::readTcpData()
     char* data;
     data = (char*)malloc(bytes_to_read);
     qDebug() << "Read bytes: " << _pSocket->read(data, bytes_to_read);
-    QByteArray arr;
-    arr = QByteArray::fromRawData(const_cast<const char*>(data), bytes_to_read);
+    QByteArray arr = QByteArray::fromRawData(const_cast<const char*>(data), bytes_to_read);
     _pArray->append(arr);
     if (bytes_to_read != 4096) {
         completed_packet();
@@ -63,11 +62,13 @@ void DelugeClient::read_completed()
         object zlib_mod = import("zlib");
         dezlib = zlib_mod.attr("decompressobj")();
         object data = dezlib.attr("decompress")(_pArray->constData());
-        qDebug() << "Uncompressed data: " << extract<char *>(data);
-        dezlib.attr("flush")();
+        const char* cdata = extract<const char*>(data);
+        QByteArray uncomp = QByteArray::fromRawData(cdata, _pArray->size());
+        qDebug() << "Uncompressed data: " << uncomp;
         imp = import("imp");
         rencode = imp.attr("load_source")("rencode", "/opt/sdk/share/deluge/rencode.py");
-        object tdata = rencode.attr("loads")(data);
+        dezlib.attr("flush")();
+        object tdata = rencode.attr("loads")(uncomp.constData());
         qDebug() << extract<int>(tdata[0]);
         qDebug() << extract<int>(tdata[1]);
         int respnum = extract<int>(tdata[1]);
