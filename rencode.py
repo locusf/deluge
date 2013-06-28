@@ -150,8 +150,10 @@ def decode_inth(x, f):
 
 def decode_intl(x, f):
     f += 1
-    print x
-    print f
+    x = x + "    "
+    print "INTL: X: " + x
+    print "INTL: LEN(X): " + str(len(x))
+    print "INTL: F: " + str(f)
     return (struct.unpack('!l', x[f:f+4])[0], f+4)
 
 def decode_intq(x, f):
@@ -193,6 +195,11 @@ def decode_dict(x, f):
     r, f = {}, f+1
     while x[f:f+1] != CHR_TERM:
         k, f = decode_func[x[f:f+1]](x, f)
+        print "K: " + k
+        print "F: " + str(f)
+        print "X: " + x
+        print "R: "
+        print r
         r[k], f = decode_func[x[f:f+1]](x, f)
     return (r, f + 1)
 
@@ -282,10 +289,11 @@ def make_fixed_length_dict_decoders():
 
 make_fixed_length_dict_decoders()
 
-def loads(x, decode_utf8=False):
+def loads(x, decode_utf8=True):
     global _decode_utf8
     _decode_utf8 = decode_utf8
     print x
+    print x[0:1]
     try:
         r, l = decode_func[x[0:1]](x, 0)
     except (IndexError, KeyError):

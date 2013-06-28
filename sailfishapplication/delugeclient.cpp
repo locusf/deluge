@@ -114,8 +114,10 @@ void DelugeClient::after_login() {
     list params2, get_torrents_status;
     get_torrents_status.append(12);
     get_torrents_status.append("core.get_torrents_status");
-    list args;
-    args.append(list());
+    list args, keys;
+    keys.append("name");
+    keys.append("save_path");
+    args.append(keys);
     args.append(dict());
     get_torrents_status.append(args);
     get_torrents_status.append(dict());
