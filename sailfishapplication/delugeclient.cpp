@@ -117,8 +117,8 @@ void DelugeClient::after_login() {
     list args, keys;
     keys.append("name");
     keys.append("save_path");
-    args.append(keys);
     args.append(dict());
+    args.append(keys);
     get_torrents_status.append(args);
     get_torrents_status.append(dict());
     params2.append(get_torrents_status);
