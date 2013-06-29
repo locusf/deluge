@@ -28,7 +28,7 @@ DelugeClient::DelugeClient(QObject *parent) :
     connect(_pSocket, SIGNAL(readyRead()), this, SLOT(readTcpData()) );
     connect(this, SIGNAL(completed_packet()), this, SLOT(read_completed()));
     connect(this, SIGNAL(loggedIn()), this, SLOT(after_login()));
-    connect(this, SIGNAL(torrentsReceived(object)), this, SLOT(after_info(object)));
+    connect(this, SIGNAL(torrentsReceived(object)), this, SLOT(after_torrents_status(object)));
     _pSocket->connectToHostEncrypted("gtsq.lan", 58846, "Deluge Daemon");
 }
 
@@ -116,7 +116,6 @@ void DelugeClient::after_login() {
     get_torrents_status.append("core.get_torrents_status");
     list args, keys;
     keys.append("name");
-    keys.append("save_path");
     args.append(dict());
     args.append(keys);
     get_torrents_status.append(args);
@@ -130,10 +129,19 @@ void DelugeClient::after_login() {
     }
 }
 
-void DelugeClient::after_info(object result) {
+void DelugeClient::after_torrents_status(object result) {
     try {
         dict res = extract<dict>(result);
-        qDebug() << "Server information: " << res.get("reads");
+        object sys = import("sys");
+        list keys = res.keys();
+        ssize_t n = len(keys);
+        for (ssize_t i=0; i < n; i++) {
+            object elem = keys[i];
+            std::string astr = extract<std::string>(str(elem).encode("utf-8"));
+            dict tordict = extract<dict>(res.get(elem));
+            std::string kstr = extract<std::string>(str(tordict.get("name")).encode("utf-8"));
+            torrentFired(QString::fromStdString(kstr));
+        }
     } catch (error_already_set const &) {
         PyErr_Print();
     }

@@ -36,11 +36,12 @@ signals:
     void completed_packet();
     void loggedIn();
     void torrentsReceived(object torrents);
+    void torrentFired(QString torrent);
 public slots:
     Q_SLOT void readTcpData();
     Q_SLOT void read_completed();
     void after_login();
-    void after_info(object result);
+    void after_torrents_status(object result);
 };
 
 #endif // DELUGECLIENT_H

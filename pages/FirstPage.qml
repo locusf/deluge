@@ -30,6 +30,12 @@ Page {
                 DelugeClient.getTorrents()
             }
         }
+        Connections {
+            target: DelugeClient
+            onTorrentFired: {
+                torrentsmodel.append({name:torrent})
+            }
+        }
 
         // PullDownMenu and PushUpMenu must be declared in SilicaFlickable, SilicaListView or SilicaGridView
         PullDownMenu {
