@@ -22,6 +22,9 @@ Page {
                 x: theme.paddingLarge
                 text: name
             }
+            onClicked: {
+                DelugeClient.torrentInfo(id)
+            }
         }
         Timer {
             interval: 1
@@ -33,7 +36,7 @@ Page {
         Connections {
             target: DelugeClient
             onTorrentFired: {
-                torrentsmodel.append({name:torrent})
+                torrentsmodel.append({name:torrent_name, id:torrent_id})
             }
         }
 

@@ -29,6 +29,7 @@ DelugeClient::DelugeClient(QObject *parent) :
     connect(this, SIGNAL(completed_packet()), this, SLOT(read_completed()));
     connect(this, SIGNAL(loggedIn()), this, SLOT(after_login()));
     connect(this, SIGNAL(torrentsReceived(object)), this, SLOT(after_torrents_status(object)));
+    connect(this, SIGNAL(torrentInfoGot(object)), this, SLOT(after_torrent_info(object)));
     _pSocket->connectToHostEncrypted("gtsq.lan", 58846, "Deluge Daemon");
 }
 
@@ -79,6 +80,9 @@ void DelugeClient::read_completed()
         if (respnum == 12) {
             torrentsReceived(result);
         }
+        if (respnum == 13) {
+            torrentInfoGot(result);
+        }
     } catch(error_already_set const &) {
         PyErr_Print();
     }
@@ -121,9 +125,8 @@ void DelugeClient::after_login() {
     get_torrents_status.append(args);
     get_torrents_status.append(dict());
     params2.append(get_torrents_status);
-    char* cdata2 = extract<char *>(compzlib.attr("compress")(rencode.attr("dumps")(params2)));
-    QByteArray data2(cdata2);
-    qDebug() << "Wrote: " << _pSocket->write(data2);
+    const char* cdata2 = extract<const char *>(compzlib.attr("compress")(rencode.attr("dumps")(params2)));
+    qDebug() << "Wrote: " << _pSocket->write(cdata2);
     } catch (error_already_set const &) {
         PyErr_Print();
     }
@@ -132,7 +135,6 @@ void DelugeClient::after_login() {
 void DelugeClient::after_torrents_status(object result) {
     try {
         dict res = extract<dict>(result);
-        object sys = import("sys");
         list keys = res.keys();
         ssize_t n = len(keys);
         for (ssize_t i=0; i < n; i++) {
@@ -140,7 +142,47 @@ void DelugeClient::after_torrents_status(object result) {
             std::string astr = extract<std::string>(str(elem).encode("utf-8"));
             dict tordict = extract<dict>(res.get(elem));
             std::string kstr = extract<std::string>(str(tordict.get("name")).encode("utf-8"));
-            torrentFired(QString::fromStdString(kstr));
+            torrentFired(QString::fromStdString(astr), QString::fromStdString(kstr));
+        }
+    } catch (error_already_set const &) {
+        PyErr_Print();
+    }
+}
+
+void DelugeClient::torrentInfo(QString id)
+{
+    qDebug() << id;
+    try {
+        list params, get_torrent_status;
+        get_torrent_status.append(13);
+        get_torrent_status.append("core.get_torrent_status");
+        list args, keys;
+        keys.append("download_rate");
+        keys.append("upload_rate");
+        args.append(str(id.toStdString()));
+        args.append(keys);
+        get_torrent_status.append(args);
+        get_torrent_status.append(dict());
+        params.append(get_torrent_status);
+        const char* request = extract<const char*>(compzlib.attr("compress")(rencode.attr("dumps")(params)));
+        qDebug() << "Wrote " << _pSocket->write(request);
+    } catch (error_already_set const &) {
+        PyErr_Print();
+    }
+}
+
+void DelugeClient::after_torrent_info(object result) {
+    try {
+        dict res = extract<dict>(result);
+        object sys = import("sys");
+        sys.attr("stdout").attr("write")("Result: ");
+        sys.attr("stdout").attr("write")(str(result));
+        list keys = res.keys();
+        ssize_t n = len(keys);
+        for (ssize_t i=0; i < n; i++) {
+            object elem = keys[i];
+            std::string astr = extract<std::string>(str(elem).encode("utf-8"));
+            qDebug() << QString::fromStdString(astr);
         }
     } catch (error_already_set const &) {
         PyErr_Print();
